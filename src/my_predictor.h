@@ -11,7 +11,7 @@ public:
 
 class my_predictor : public branch_predictor {
 public:
-#define HISTORY_LENGTH	20      // Increased length of the history from 15 to 20
+#define HISTORY_LENGTH	30      // Increased length of the history from 15 to 20
                                 // Global history length (keeps up to HISTORY_LENGTH branches with h1 = taken, 0 = not taken)
 #define TABLE_BITS	30      // Increased length of tab from 15 to 30
                                 // Local history table (number of entries in table)
@@ -77,10 +77,10 @@ public:
 			history &= (1<<HISTORY_LENGTH)-1;
 		        
                         // My code
-                        if (GHvLH[0] == taken) {
+                        if (GHvLH[0] == taken) {        // If the local history is more accurate, next time take just local history
                                 counter[index] = 0;
                         }
-                        if (GHvLH[1] == taken)  {
+                        if (GHvLH[1] == taken)  {       // If the combination local and global history is more accurate, take combination and local and global history
                                 counter[index] = 1;
                         }
                 }
