@@ -109,11 +109,11 @@ public:
                                 counter[index] = 1;
                         }
                         
-                        if (SvL[1] == taken) {          // If short prediction is accurate, set to short
-                                 shortOrLong[index] = 1; 
-                        }
                         if (SvL[2] == taken) {          // If medium prediction is accurate, set to take medium
                                 shortOrLong[index] = 2;
+                        }
+                        if (SvL[1] == taken) {          // If short prediction is accurate, set to short
+                                 shortOrLong[index] = 1; 
                         }
                         if (SvL[0] == taken) {          // If long prediction is accurate, set to take long
                                  shortOrLong[index] = 0;
