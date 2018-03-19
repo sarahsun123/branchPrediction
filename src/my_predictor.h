@@ -11,22 +11,22 @@ public:
 
 class my_predictor : public branch_predictor {
 public:
-#define HISTORY_LENGTH	30      // Increased length of the history from 15 to 30
-                                // Global history length (keeps up to HISTORY_LENGTH branches with h1 = taken, 0 = not taken)
-#define TABLE_BITS	30      // Increased length of tab from 15 to 30
-                                // Local history table (number of entries in table)
+#define HISTORY_LENGTH	30              // Increased length of the history from 15 to 30
+                                        // Global history length (keeps up to HISTORY_LENGTH branches with h1 = taken, 0 = not taken)
+#define TABLE_BITS	30              // Increased length of tab from 15 to 30
+                                        // Local history table (number of entries in table)
 // My code
-#define SHORT_HISTORY_LENGTH 20 // Keep a short history length to see if it works better for some branches and some for longer 
-
+#define SHORT_HISTORY_LENGTH 10         // Keep a short history length to see if it works better for some branches and some for longer 
+#define MEDIUM_HISTORY_LENGTH 20        // Keep a medium history length to see if it works better for some branches
 	my_update u;
 	branch_info bi;
-	unsigned int history, short_history;    // Add short_history to keep track of short history
+	unsigned int history, short_history, medium_history;    // Add short_history to keep track of short history
 	unsigned char tab[1<<TABLE_BITS];
         // My code
         unsigned int counter[1<<TABLE_BITS];    // table that keeps track of if local history is better or if local and global history is
         unsigned int index;             // Index of the last branch in counter
         bool GHvLH[2];   // Initialize table to keep value of local history prediction and global history prediction for last branch
-        bool SvL[2];     // Initialize table to keep value of short history prediction or long history prediction
+        bool SvL[3];     // Initialize table to keep value of short history prediction or medium or long history prediction
         unsigned int shortOrLong[1<<TABLE_BITS];        // Table that keeps track if short or long history is better
 
 
@@ -36,7 +36,7 @@ public:
 
 	branch_update *predict (branch_info & b) {
 		bi = b;
-                int g, gs, l;       // g = global history estimated index, l = local history estimated index
+                int g, gs, gm, l;       // g = global history estimated index, l = local history estimated index
 		unsigned int h; // h = history (use either short or long history)
                 if (b.br_flags & BR_CONDITIONAL) {
 			/*
@@ -48,16 +48,21 @@ public:
                         // My code
                         g = history << (TABLE_BITS - HISTORY_LENGTH);
                         gs = short_history << (TABLE_BITS - SHORT_HISTORY_LENGTH);
+                        gm = medium_history << (TABLE_BITS - MEDIUM_HISTORY_LENGTH);
                         l = b.address & ((1<<TABLE_BITS)-1);
                         
                         // Saves value of g and gs as history
-                        SvL[0] = tab[g^l] >> 2;
-                        SvL[1] = tab[gs^l] >> 2;
+                        SvL[0] = tab[g^l] >> 2; // Saves long history length prediction
+                        SvL[1] = tab[gs^l] >> 2;        // Saves short history length prediction
+                        SvL[2] = tab[gm^l] >> 2;        // Saves medium history length prediction
                         
                         index = g^l;
                         
                         if (shortOrLong[index] == 1) {  // If = 1, take short history
                                 g = gs;
+                        }
+                        if (shortOrLong[index] == 2) {  // If = 2, take medium history
+                                g = gm;
                         }
                         // If counter = 0 (i.e. local history prediction was more accurate), use only global history to determine predicted branch. Otherwise use both global and local
                         if (counter[index] == 0) {                      // If counter at index is 0, only take local history
@@ -92,6 +97,11 @@ public:
                         short_history <<= 1;
                         short_history |= taken;
                         short_history &= (1<<SHORT_HISTORY_LENGTH)-1;
+
+                        medium_history <<= 1;
+                        medium_history |= taken;
+                        medium_history &= (1<<MEDIUM_HISTORY_LENGTH)-1;
+
                         if (GHvLH[0] == taken) {        // If the local history is more accurate, next time take just local history
                                 counter[index] = 0;
                         }
@@ -99,12 +109,15 @@ public:
                                 counter[index] = 1;
                         }
                         
-                        if (SvL[1] == taken) {
+                        if (SvL[1] == taken) {          // If short prediction is accurate, set to short
                                  shortOrLong[index] = 1; 
                         }
-                        if (SvL[0] == taken) {
+                        if (SvL[2] == taken) {          // If medium prediction is accurate, set to take medium
+                                shortOrLong[index] = 2;
+                        }
+                        if (SvL[0] == taken) {          // If long prediction is accurate, set to take long
                                  shortOrLong[index] = 0;
-                        } 
+                        }
                 }
 	}
 };
