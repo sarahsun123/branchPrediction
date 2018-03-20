@@ -16,8 +16,9 @@ public:
 #define TABLE_BITS	30              // Increased length of tab from 15 to 30
                                         // Local history table (number of entries in table)
 // My code
-#define SHORT_HISTORY_LENGTH 10         // Keep a short history length to see if it works better for some branches and some for longer 
-#define MEDIUM_HISTORY_LENGTH 20        // Keep a medium history length to see if it works better for some branches
+#define SHORT_HISTORY_LENGTH 2         // Keep a short history length to see if it works better for some branches and some for longer 
+#define MEDIUM_HISTORY_LENGTH 12        // Keep a medium history length to see if it works better for some branches
+#define ALPHA 0.6                        // Weight of current taken value
 	my_update u;
 	branch_info bi;
 	unsigned int history, short_history, medium_history;    // Add short_history to keep track of short history
@@ -28,7 +29,7 @@ public:
         bool GHvLH[2];   // Initialize table to keep value of local history prediction and global history prediction for last branch
         bool SvL[3];     // Initialize table to keep value of short history prediction or medium or long history prediction
         unsigned int shortOrLong[1<<TABLE_BITS];        // Table that keeps track if short or long history is better
-
+        unsigned int prevTake[1<<TABLE_BITS];           // Table that keeps track of if previous same branch performed better with short (1), medium (2), or long (0)
 
 	my_predictor (void) : history(0) { 
 		memset (tab, 0, sizeof (tab));
@@ -53,15 +54,22 @@ public:
                         
                         // Saves value of g and gs as history
                         SvL[0] = tab[g^l] >> 2; // Saves long history length prediction
-                        SvL[1] = tab[gs^l] >> 2;        // Saves short history length prediction
-                        SvL[2] = tab[gm^l] >> 2;        // Saves medium history length prediction
+                        SvL[1] = tab[gm^l] >> 2;        // Saves short history length prediction
+                        SvL[2] = tab[gs^l] >> 2;        // Saves medium history length prediction
                         
                         index = g^l;
-                        
-                        if (shortOrLong[index] == 1) {  // If = 1, take short history
+                        /* 
+                        if (shortOrLong[index] == 2) {  // If = 1, take short history
                                 g = gs;
                         }
-                        if (shortOrLong[index] == 2) {  // If = 2, take medium history
+                        if (shortOrLong[index] == 1) {  // If = 2, take medium history
+                                g = gm;
+                        } */
+                        int take = (ALPHA)*(shortOrLong[index]) + (1-ALPHA)*(prevTake[index]);
+                        if (take >= 2*ALPHA + (1-ALPHA)*1  ) {  // If = 2, take short history
+                                g = gs;
+                        }
+                        if (take < 2*ALPHA + (1-ALPHA)*1  && take >= ALPHA*1+(1-ALPHA)*1) {  // If between 2 and 4, take short history
                                 g = gm;
                         }
                         // If counter = 0 (i.e. local history prediction was more accurate), use only global history to determine predicted branch. Otherwise use both global and local
@@ -109,11 +117,12 @@ public:
                                 counter[index] = 1;
                         }
                         
-                        if (SvL[2] == taken) {          // If medium prediction is accurate, set to take medium
-                                shortOrLong[index] = 2;
+                        prevTake[index] = shortOrLong[index];
+                        if (SvL[1] == taken) {          // If medium prediction is accurate, set to take medium
+                                shortOrLong[index] = 1;
                         }
-                        if (SvL[1] == taken) {          // If short prediction is accurate, set to short
-                                 shortOrLong[index] = 1; 
+                        if (SvL[2] == taken) {          // If short prediction is accurate, set to short
+                                 shortOrLong[index] = 2; 
                         }
                         if (SvL[0] == taken) {          // If long prediction is accurate, set to take long
                                  shortOrLong[index] = 0;
